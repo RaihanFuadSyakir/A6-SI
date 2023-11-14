@@ -7,28 +7,35 @@ import pymongo
 
 
 class InstagramScraper:
-    def __init__(self, username, password, db_name):
+    def __init__(self, db_name):
         self.logger = logging.getLogger()
         self.cl = Client()
         self.cl.delay_range = [1, 3]
-        self.username = username
-        self.password = password
-        self.login_user_usejson()
-        self.db_name = db_name
+        self.username = None
+        self.password = None
+        self.session = None
         self.myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+        self.db_name = db_name
+        self.set_attr_from_db()
+        self.login_user_usejson()
         self.mydb = self.myclient[db_name]
         self.col_users = self.mydb["Users"]
         self.col_posts = self.mydb["Posts"]
-        self.end_cursor_get_posts = None
-        self.end_cursor_get_comments = None
+
+    def set_scrapper_acc(self, username: str, password: str):
+        self.username = username
+        self.password = password
+
+    def set_attr_from_db(self):
+        user = self.myclient["main"]["users"].find_one(
+            {"username": self.db_name})
+        self.username = user["scrap_acc"]["username"]
+        self.password = user["scrap_acc"]["password"]
+        self.session = user["scrap_acc"]["session"]
 
     def login_user_usejson(self):
         session_file = "session.json"
-        if os.path.exists(session_file):
-            session = self.cl.load_settings(session_file)
-        else:
-            session = None
-
+        session = self.session
         login_via_session = False
         login_via_pw = False
 
@@ -72,6 +79,9 @@ class InstagramScraper:
                 "Couldn't login user with either password or session")
 
     def get_userinfo(self, target_user):
+        userdat = self.col_users.find_one({"username": target_user})
+        if userdat:
+            return userdat
         user_id = self.cl.user_id_from_username(target_user)
         user_info = self.cl.user_info(user_id)
         user_info_dict = {
@@ -81,7 +91,8 @@ class InstagramScraper:
             "media_count": user_info.media_count,
             "follower_count": user_info.follower_count,
             "pfp_url": user_info.profile_pic_url,
-            "posts": []
+            "posts": [],
+            "end_cursor": None
         }
         return user_info_dict
 
@@ -126,7 +137,8 @@ class InstagramScraper:
                 "thumbnail_url": media.thumbnail_url,
                 "view_count": media.view_count,
                 "video_url": media.video_url,
-                "comments": []
+                "comments": [],
+                "end_cursor": None
             })
         return posts, end_cursor
 
@@ -155,19 +167,32 @@ class InstagramScraper:
             with open(file_path_user, 'w') as json_file:
                 json.dump(json_target, json_file, indent=4)
 
+    def export_userinfo_mongodb(self, username_target: str, json_target: dict):
+        # Search for an existing document with the given username
+        existing_data = self.col_users.find_one({"username": username_target})
+
+        if existing_data:
+            # Update the "posts" field with new data
+            posts = existing_data.get("posts", [])
+            posts += json_target.get("posts", [])
+
+            # Update the existing document
+            self.col_users.update_one(
+                {"username": username_target},
+                {"$set": {"posts": posts}}
+            )
+        else:
+            self.col_users.insert_one(json_target)
+
     def scrape_and_save(self, target_user):
         userinfo = self.get_userinfo(target_user)
         # userinfo["posts"] = self.get_posts(target_user, 5)
-        end_cursor = "QVFBVmt2bi1oX3duMTlGdWlXTldkQkZuVHdQN3JJTWRQXzlBZTYtQXRuLXIyOG5tMDk4NGczYUNLUzROZWNDZVF2T1JqeTVmMkNhX0Fyc1BhcWpQWm1FVw=="
-        userinfo["posts"], end_cursor = self.get_posts_paginated(
-            target_user, 5, end_cursor)
-        print(end_cursor)
-        # self.export_json(f'{target_user}_infoacc', userinfo)
-        self.export_userinfo_json(target_user, userinfo)
-        # self.col_users.insert_one(userinfo)
+        userinfo["posts"], userinfo["end_cursor"] = self.get_posts_paginated(
+            target_user, 5, userinfo["end_cursor"])
+        self.export_userinfo_mongodb(target_user, userinfo)
 
 
 # Example usage:
-scraper = InstagramScraper("meltfrosty", "stayfrosty", "user1")
-print(scraper)
+scraper = InstagramScraper("rfs")
+print(scraper.username, scraper.password)
 scraper.scrape_and_save("monsterhuntergame")
