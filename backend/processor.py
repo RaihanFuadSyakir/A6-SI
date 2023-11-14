@@ -24,6 +24,16 @@ config = AutoConfig.from_pretrained(MODEL)
 # PT
 model = AutoModelForSequenceClassification.from_pretrained(MODEL)
 
+def compare_scores(scores):
+    if scores[2] > scores[1] and scores[2] > scores[0]:
+        return 1
+    elif scores[0] > scores[1] and scores[0] > scores[2]:
+        return 0
+    elif scores[1] > scores[0] and scores[1] > scores[2]:
+        return 0
+    else:
+        # Handle the case where none of the conditions are met
+        return None
 
 def analyzeSentiment(text):
     text = preprocess(text)
@@ -31,15 +41,16 @@ def analyzeSentiment(text):
     output = model(**encoded_input)
     scores = output[0][0].detach().numpy()
     scores = softmax(scores)
-    object_sentiment = {
+    details = {
         "positive": float(scores[2]),
         "neutral": float(scores[1]),
         "negative": float(scores[0])
     }
-    return object_sentiment
+    sentiment = compare_scores(scores)
+    return sentiment, details
 
+'''# testing
+text = "I'm neutral about it"
+sentiment, details = analyzeSentiment(text)
+print("sentiment : " + str(sentiment) + " ", details)'''
 
-# testing
-text = "I love you"
-sentiment = analyzeSentiment(text)
-print(sentiment)
