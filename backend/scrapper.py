@@ -23,7 +23,7 @@ class InstagramScraper:
         self.end_cursor_get_comments = None
 
     def login_user_usejson(self):
-        session_file = "session.json"
+
         if os.path.exists(session_file):
             session = self.cl.load_settings(session_file)
         else:
