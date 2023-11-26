@@ -3,6 +3,7 @@ import { Post, User, axiosInstance, jsonFormat } from '@/utils/DataFetching'
 import { AxiosError, AxiosResponse } from 'axios';
 import React, { useEffect, useState } from 'react'
 import { InstagramEmbed } from 'react-social-media-embed';
+import DialogPost from '../post/DialogPost';
 export default function UserProfile({username}:{username : string}) {
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
@@ -40,15 +41,15 @@ export default function UserProfile({username}:{username : string}) {
       <p>{user?.username}</p>
       <div className='relative flex flex-wrap'>
         {posts &&
-          posts.slice(0, visiblePosts).map((post) => (
+          posts.slice(0, visiblePosts).map((post,index) => (
             <div className='flex flex-col w-[328px] justify-between' key={post.post_pk}>
               <InstagramEmbed url={`https://www.instagram.com/p/${post.link}/`} width={328} />
-              <button className='bg-sky-700 rounded hover:bg-sky-600 px-2'>Db Detail</button>
+              <DialogPost posts={posts} setPosts={setPosts} index={index}/>
             </div>
           ))}
       </div>
       {posts && visiblePosts < posts?.length && (
-        <button className='mt-4 mx-auto' onClick={loadMorePosts}>
+        <button className='mt-4 mx-auto justify-center' onClick={loadMorePosts}>
           Load More
         </button>
       )}

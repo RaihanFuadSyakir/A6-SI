@@ -5,6 +5,7 @@ import json
 import os
 import pymongo
 import datetime
+from deep_translator import GoogleTranslator
 
 
 class InstagramScraper:
@@ -183,7 +184,7 @@ class InstagramScraper:
             comments_dict.append({
                 "comment_pk": comment.pk,
                 "username": comment.user.username,
-                "text": comment.text
+                "text": GoogleTranslator(source='auto', target='en').translate(comment.text)
             })
         return comments_dict
 
@@ -195,7 +196,7 @@ class InstagramScraper:
             comments_dict.append({
                 "comment_pk": comment.pk,
                 "username": comment.user.username,
-                "text": comment.text
+                "text": GoogleTranslator(source='auto', target='en').translate(comment.text)
             })
         return comments_dict, new_end_cursor
 
@@ -235,8 +236,10 @@ class InstagramScraper:
                 new_comments = self.get_post_comments(
                     post_pk, comments_to_sync)
                 new_post["comments"] = new_comments + existing_post["comments"]
+                new_post["end_cursor"] = existing_post["end_cursor"]
             else:
                 new_post["comments"] = existing_post["comments"]
+                new_post["end_cursor"] = existing_post["end_cursor"]
             self.col_posts.update_one(
                 {"post_pk": post_pk}, {"$set": new_post})
         else:
@@ -265,7 +268,8 @@ class InstagramScraper:
             existing_user = self.col_users.find_one({"username": username})
             new_userinfo = self.get_userinfo(username)
             if existing_user:
-                new_userinfo["posts"] = existing_user["posts"].copy()
+                new_userinfo["posts"] = existing_user["posts"]
+                new_userinfo["end_cursor"] = existing_user["end_cursor"]
                 posts_to_sync = new_userinfo["media_count"] - \
                     existing_user["media_count"]
                 if (posts_to_sync > 0):
@@ -279,7 +283,7 @@ class InstagramScraper:
                     {"$set": new_userinfo})
             else:
                 posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
-                    username, new_userinfo["end_cursor"])
+                    username)
                 posts_ids = []
                 for post in posts:
                     posts_ids.append(post["post_pk"])
@@ -297,11 +301,13 @@ class InstagramScraper:
         new_userinfo = self.get_userinfo(username)
         if existing_user:
             if existing_user["end_cursor"]:
-                new_posts = self.get_posts_paginated(
+                new_posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
                     username, existing_user["end_cursor"])
                 for post in new_posts:
                     new_userinfo["posts"].append(post["post_pk"])
                 self.col_posts.insert_many(new_posts)
+            else:
+                new_userinfo["posts"] = existing_user["posts"]
             self.col_users.update_one(
                 {"username": username},
                 {"$set": new_userinfo})

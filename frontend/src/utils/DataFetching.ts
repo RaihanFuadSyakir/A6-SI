@@ -39,6 +39,14 @@ interface Comment {
     comment_pk: string;
     username: string;
     text: string;
+    sentiment?:{
+        overall : number;
+        detail : {
+            positive : number;
+            neutral : number;
+            negative : number;
+        }
+    }
 }
 export interface DataProgress{
     _id: string;

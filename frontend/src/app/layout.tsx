@@ -4,6 +4,7 @@ import './globals.css'
 import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Link from '@mui/material/Link'
 import Typography from '@mui/material/Typography'
+import BreadCrumbs from '@/components/etc/BreadCrumbs'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,6 +22,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className}`}>
         <main className='bg-slate-300 min-h-screen min-w-screen text-black'>
+        <BreadCrumbs/>
           {children}
         </main>
       </body>

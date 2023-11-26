@@ -7,7 +7,9 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import { AxiosError, AxiosResponse } from 'axios';
 import React, { useEffect, useState } from 'react'
-
+import SyncIcon from '@mui/icons-material/Sync';
+import SyncUser from '@/components/user/SyncUser';
+import AddPastPosts from '@/components/user/AddPastPosts';
 export default function Users() {
     const [users,setUsers] = useState<User[] | null>(null);
     useEffect(()=>{
@@ -20,15 +22,15 @@ export default function Users() {
             })
     },[])
   return (
-    <div>
-        {users && users.map((user)=>(
-             <Card sx={{ minWidth: 275 }} key={user._id}>
+    <div className='flex m-4'>
+        {users && users.map((user,index)=>(
+             <Card sx={{ minWidth: 275 }} key={user._id} className='rounded m-2'>
              <CardContent>
-               <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
-                 username : {user.username}
+             <Typography variant="h5" component="div">
+                 {user.username}
                </Typography>
-               <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
-                 user full name : {user.full_name}
+               <Typography sx={{ mb: 1.5 }} color="text.secondary">
+                 {user.full_name}
                </Typography>
                <Typography sx={{ mb: 1.5 }} color="text.secondary">
                  followers : {user.follower_count}
@@ -36,6 +38,11 @@ export default function Users() {
                <Typography sx={{ mb: 1.5 }} color="text.secondary">
                  posts : {user.media_count}
                </Typography>
+               <Typography sx={{ mb: 1.5 }} color="text.secondary">
+                 posts stored : {user.posts.length}
+               </Typography>
+               <Typography variant="body2">Add past posts<AddPastPosts users={users} setUsers={setUsers} index={index}/></Typography>
+               <Typography variant="body2">{user.last_sync}<SyncUser users={users} setUsers={setUsers} index={index}/></Typography>
              </CardContent>
              <CardActions>
                <Button size="small" href={`/users/${user.username}`}>More Detail</Button>
