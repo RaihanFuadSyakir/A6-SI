@@ -32,6 +32,10 @@ export interface Post {
     view_count: number;
     video_url: null | string;
     comments: Comment[];
+    engagement_rate : [{
+        engagement_rate_score : number;
+        datetime : Date;
+    }]
     end_cursor: null | string;
     last_sync: string;
 }
@@ -65,3 +69,11 @@ export interface jsonFormat<T>{
         },
         data: T
 }
+export interface UserLogin {
+    _id: {
+      $oid: string;
+    };
+    username: string;
+    password: string;
+    is_logged: boolean;
+  }

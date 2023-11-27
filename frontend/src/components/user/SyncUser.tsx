@@ -8,7 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 interface setUser {
   users : User[];
-  setUsers : React.Dispatch<React.SetStateAction<User[] | null>>;
+  setUsers : React.Dispatch<React.SetStateAction<User[]>>;
   index : number;
 }
 export default function SyncUser({users,setUsers, index} : setUser) {

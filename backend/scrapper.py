@@ -16,12 +16,12 @@ class InstagramScraper:
         self.username = None
         self.password = None
         self.session = None
+        self.is_connected = False
         self.myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         self.db_name = db_name
         self.set_attr_from_db()
         if (self.username != None and self.password != None):
-            self.login_user_usejson()
-        self.is_connected = False
+            self.login_user()
         self.mydb = self.myclient[db_name]
         self.col_users = self.mydb["users"]
         self.col_posts = self.mydb["posts"]
@@ -37,7 +37,7 @@ class InstagramScraper:
         self.password = user["scrap_acc"]["password"]
         self.session = user["scrap_acc"]["session"]
 
-    def login_user_usejson(self):
+    def login_user(self):
         session = self.session
         login_via_session = False
         login_via_pw = False
@@ -61,12 +61,12 @@ class InstagramScraper:
                     self.cl.login(self.username, self.password)
                     new_session = self.cl.get_settings()
                     self.myclient["main"]["users"].update_one(
-                        {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}})
+                        {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session, "is_logged": True}})
                     self.is_connected = True
                 login_via_session = True
                 new_session = self.cl.get_settings()
                 self.myclient["main"]["users"].update_one(
-                    {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}})
+                    {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session, "is_logged": True}})
                 self.is_connected = True
                 print("revalidate session")
             except Exception as e:
@@ -81,7 +81,7 @@ class InstagramScraper:
                     login_via_pw = True
                     new_session = self.cl.get_settings()
                     self.myclient["main"]["users"].update_one(
-                        {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}})
+                        {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}, "is_logged": True})
                     self.is_connected = True
                     print("new session added")
             except Exception as e:
@@ -127,6 +127,8 @@ class InstagramScraper:
                 "view_count": media.view_count,
                 "video_url": media.video_url,
                 "comments": [],
+                "engagement_rate": [],
+                "end_cursor": None,
                 "last_sync": datetime.datetime.now()
             })
         return posts
@@ -151,6 +153,7 @@ class InstagramScraper:
                 "view_count": media.view_count,
                 "video_url": media.video_url,
                 "comments": [],
+                "engagement_rate": [],
                 "end_cursor": None,
                 "last_sync": datetime.datetime.now()
             })
@@ -158,6 +161,10 @@ class InstagramScraper:
 
     def get_post(self, post_pk: str):
         post = self.cl.media_info(post_pk)
+        print(post.view_count)
+        if (post.view_count < 1):
+            post.view_count = post.like_count + round(0.1*post.like_count)
+        print(post.view_count)
         post_dict = {
             "username": post.user.username,
             "link": post.code,
@@ -181,6 +188,8 @@ class InstagramScraper:
         comments = self.cl.media_comments(post_pk, amount)
         comments_dict = []
         for comment in comments:
+            if (comment is None):
+                comment = ''
             comments_dict.append({
                 "comment_pk": comment.pk,
                 "username": comment.user.username,
@@ -193,6 +202,8 @@ class InstagramScraper:
             post_pk, 100, end_cursor)
         comments_dict = []
         for comment in comments:
+            if (comment is None):
+                comment = ''
             comments_dict.append({
                 "comment_pk": comment.pk,
                 "username": comment.user.username,
@@ -283,7 +294,7 @@ class InstagramScraper:
                     {"$set": new_userinfo})
             else:
                 posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
-                    username)
+                    username, None)
                 posts_ids = []
                 for post in posts:
                     posts_ids.append(post["post_pk"])
@@ -303,8 +314,12 @@ class InstagramScraper:
             if existing_user["end_cursor"]:
                 new_posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
                     username, existing_user["end_cursor"])
+                print(new_posts)
+                print(new_userinfo["end_cursor"])
+                posts_ids = []
                 for post in new_posts:
-                    new_userinfo["posts"].append(post["post_pk"])
+                    posts_ids.append(post["post_pk"])
+                new_userinfo["posts"] = existing_user["posts"] + posts_ids
                 self.col_posts.insert_many(new_posts)
             else:
                 new_userinfo["posts"] = existing_user["posts"]
@@ -314,7 +329,7 @@ class InstagramScraper:
             return "updated"
         else:
             posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
-                username)
+                username, None)
             posts_ids = []
             for post in posts:
                 posts_ids.append(post["post_pk"])

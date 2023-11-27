@@ -10,8 +10,9 @@ import React, { useEffect, useState } from 'react'
 import SyncIcon from '@mui/icons-material/Sync';
 import SyncUser from '@/components/user/SyncUser';
 import AddPastPosts from '@/components/user/AddPastPosts';
+import SearchUser from '@/components/user/SearchUser';
 export default function Users() {
-    const [users,setUsers] = useState<User[] | null>(null);
+    const [users,setUsers] = useState<User[]>([]);
     useEffect(()=>{
         axiosInstance.get('/get_users/')
             .then((res : AxiosResponse<jsonFormat<User[]>>)=>{
@@ -22,7 +23,9 @@ export default function Users() {
             })
     },[])
   return (
-    <div className='flex m-4'>
+    <div className='m-4'>
+      <SearchUser users={users} setUsers={setUsers}/>
+      <div className='flex'>
         {users && users.map((user,index)=>(
              <Card sx={{ minWidth: 275 }} key={user._id} className='rounded m-2'>
              <CardContent>
@@ -49,6 +52,7 @@ export default function Users() {
              </CardActions>
            </Card>
         ))}
+    </div>
     </div>
   )
 }
