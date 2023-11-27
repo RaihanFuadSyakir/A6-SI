@@ -4,7 +4,6 @@ import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -20,9 +19,6 @@ import AddOldComments from './AddOldComments';
 import AnalyzeSentiment from './AnalyzeSentiment';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import AnalyzeMetric from './AnalyzeMetric';
-import { LineChart } from '@mui/x-charts/LineChart';
-import MetricChart from '../etc/MetricChart';
 
 interface showPost{
     posts : Post[];
@@ -44,7 +40,7 @@ export default function DialogPost({posts,setPosts,index}:showPost) {
   
     return (
       <React.Fragment>
-        <Button variant="outlined" onClick={handleClickOpen}>
+        <Button variant="outlined" onClick={handleClickOpen} className='flex justify-center items-center bg-blue-600 hover:bg-blue-500 text-white w-2/3'>
           Stored Post Data
         </Button>
         <Dialog
@@ -64,7 +60,6 @@ export default function DialogPost({posts,setPosts,index}:showPost) {
                     <Typography><FavoriteIcon className='text-red-600'/>{posts[index].likes_total}</Typography>
                     <Typography><ChatBubbleOutlineIcon/> {posts[index].comments_total}</Typography>
                     <Typography>old comments <AddOldComments setPosts={setPosts} posts={posts} index={index}/></Typography>
-                    <Typography>Analyze Metric <AnalyzeMetric setPosts={setPosts} posts={posts} index={index}/></Typography>
                     <Typography>Analyze Sentiment <AnalyzeSentiment setPosts={setPosts} posts={posts} index={index}/></Typography>
                 </div>
                 <Typography className='flex items-end'>
@@ -88,13 +83,7 @@ export default function DialogPost({posts,setPosts,index}:showPost) {
                     <div className='w-1/3 font-bold'>{comment.username}</div>
                     <div className='w-2/3 flex flex-col'>
                         <div>{comment.text}</div>
-                        <div>{comment.sentiment && (
-                            comment.sentiment?.overall === 1 ? 
-                            (<div className='text-blue-600'>Posititive</div>) 
-                            :
-                            (<div className='text-red-600'>Negative</div>)
-                        )}
-                        </div>
+                        <div>
                         {comment.sentiment && comment.sentiment?.detail && (
                             <Accordion className='w-2/3'>
                                 <AccordionSummary
@@ -102,7 +91,12 @@ export default function DialogPost({posts,setPosts,index}:showPost) {
                                 aria-controls="sentiment-detail"
                                 id="sentiment-header"
                                 >
-                                <Typography>Detail</Typography>
+                                {comment.sentiment && (
+                                    comment.sentiment?.overall === 1 ? 
+                                    (<Typography className='text-blue-600'>Posititive</Typography>) 
+                                    :
+                                    (<Typography className='text-red-600'>Negative</Typography>)
+                                )}
                                 </AccordionSummary>
                                 <AccordionDetails>
                                 <div className='flex flex-col'>
@@ -113,6 +107,8 @@ export default function DialogPost({posts,setPosts,index}:showPost) {
                                 </AccordionDetails>
                             </Accordion>
                         )}
+                        </div>
+                        
                         
                     </div>
                 </div>

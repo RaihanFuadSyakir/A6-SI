@@ -25,7 +25,7 @@ export default function Users() {
   return (
     <div className='m-4'>
       <SearchUser users={users} setUsers={setUsers}/>
-      <div className='flex'>
+      <div className='flex flex-wrap'>
         {users && users.map((user,index)=>(
              <Card sx={{ minWidth: 275 }} key={user._id} className='rounded m-2'>
              <CardContent>

@@ -23,8 +23,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className}`}>
         <main className='bg-slate-300 min-h-screen min-w-screen text-black'>
-        <BreadCrumbs/>
-        <LoginUser/>
+          <div className='flex flex-col items-center justify-center'>
+            <BreadCrumbs/>
+          </div>
+          <LoginUser/>
           {children}
         </main>
       </body>

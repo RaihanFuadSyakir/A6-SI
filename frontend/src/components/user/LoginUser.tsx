@@ -30,7 +30,7 @@ export default function LoginUser() {
         })
     },[])
   return (
-    <div className='w[300px]'>
+    <div className='w[300px] m-4'>
         {isLogged ? (
             <div>Logged in</div>
             ) :

@@ -76,4 +76,5 @@ export interface UserLogin {
     username: string;
     password: string;
     is_logged: boolean;
+    latest_sync:string;
   }
