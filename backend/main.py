@@ -174,7 +174,7 @@ async def analyze_sentiment_route(post_pk):
                         'progress': 0, 'is_done': False}
         db['progress_collection'].insert_one(progress_doc)
         # Start the asynchronous task
-        asyncio.create_task(run_sync_sentiment(post_pk, progress_doc['_id']))
+        run_sync_sentiment(post_pk, progress_doc['_id'])
         result = find_data("posts", {"post_pk": post_pk})
         response = set_response_template(
             'success', 'User synchronization started', 100, True, result)
@@ -185,7 +185,7 @@ async def analyze_sentiment_route(post_pk):
         return jsonify(response)
 
 
-async def run_sync_sentiment(post_pk, progress_id):
+def run_sync_sentiment(post_pk, progress_id):
     try:
         post = find_data("posts", {"post_pk": post_pk})
         post.pop('_id')
@@ -288,6 +288,8 @@ async def sync_post(post_pk):
         db['progress_collection'].insert_one(progress_doc)
         run_sync_metrics(post_pk, progress_doc['_id'])
         result = find_data("posts", {"post_pk": post_pk})
+        client["main"]["users"].update_one(
+            {"username": db_name}, {"$set": {"latest_sync": result["post_pk"]}})
         response = set_response_template(
             'success', 'Post synchronization started', 100, True, result)
         return jsonify(response)
