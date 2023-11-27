@@ -7,7 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 interface setUser {
   users : User[];
-  setUsers : React.Dispatch<React.SetStateAction<User[] | null>>;
+  setUsers : React.Dispatch<React.SetStateAction<User[]>>;
   index : number;
 }
 export default function AddPastPosts({users,setUsers, index} : setUser) {

@@ -1,6 +1,6 @@
 # app.py
 # app.py
-from quart import Quart, jsonify
+from quart import Quart, jsonify, request
 import asyncio
 from tasks import analyze_sentiment, analyze_metrics
 from pymongo import MongoClient
@@ -19,7 +19,7 @@ MONGO_URI = "mongodb://localhost:27017/"
 client = MongoClient(MONGO_URI)
 db_name = 'rfs'
 db = client[db_name]
-scrapper = InstagramScraper("rfs")
+scrapper = InstagramScraper(db_name)
 
 # Function to set template structure for JSON responses
 
@@ -32,6 +32,48 @@ def set_response_template(status_code, message, percentage=0, is_done=False, dat
     }
 
 # Function to get task name based on endpoint
+
+
+@app.route('/api/get_login_state', methods=['GET'])
+async def get_login_state():
+    data = client["main"]["users"].find_one({"username": db_name})
+    data["_id"] = str(data["_id"])
+    data.pop("scrap_acc", None)
+    if (data["is_logged"]):
+        return set_response_template(
+            'SUCCESS', 'User Logged Status fetched', 100, True, data)
+
+
+@app.route('/api/user_login', methods=['POST'])
+async def user_login():
+    try:
+        data = await request.get_json()
+
+        # Check if the required fields are present in the request
+        if 'username' not in data or 'password' not in data:
+            response_data = set_response_template(
+                400, 'Missing required fields')
+            return jsonify(response_data), 400
+
+        username = data['username']
+        password = data['password']
+
+        # Your login logic here, using the received 'username' and 'password'
+        scrapper.set_scrapper_acc(username, password)
+        scrapper.login_user()
+
+        if scrapper.is_connected:
+            # Example response
+            response_data = set_response_template(
+                200, 'Login successful', data={'username': username})
+        else:
+            response_data = set_response_template(401, 'Login failed')
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        response_data = set_response_template(500, str(e))
+        return jsonify(response_data), 500
 
 
 def find_data(col_name: str, data, is_many=False):
@@ -131,9 +173,8 @@ async def analyze_sentiment_route(post_pk):
         progress_doc = {'process': f'analyze_sentiment{post_pk}{datetime.datetime.now()}',
                         'progress': 0, 'is_done': False}
         db['progress_collection'].insert_one(progress_doc)
-
         # Start the asynchronous task
-        asyncio.ensure_future(run_sync_sentiment(post_pk, progress_doc['_id']))
+        asyncio.create_task(run_sync_sentiment(post_pk, progress_doc['_id']))
         result = find_data("posts", {"post_pk": post_pk})
         response = set_response_template(
             'success', 'User synchronization started', 100, True, result)
@@ -153,10 +194,11 @@ async def run_sync_sentiment(post_pk, progress_id):
 
         for i in range(0, total):
             if "sentiment" not in comments[i]:
-                comments[i]["sentiment"] = processor.analyzeSentiment(
-                    comments[i]["text"])
-                db['progress_collection'].update_one(
-                    {'_id': progress_id}, {'$set': {'progress': (i+1)/total * 100, 'is_done': True}})
+                if (comments[i])["text"] is not None:
+                    comments[i]["sentiment"] = processor.analyzeSentiment(
+                        comments[i]["text"])
+                    db['progress_collection'].update_one(
+                        {'_id': progress_id}, {'$set': {'progress': (i+1)/total * 100, 'is_done': True}})
 
         # Update progress to 100 upon completion
         db['progress_collection'].update_one(
@@ -164,23 +206,22 @@ async def run_sync_sentiment(post_pk, progress_id):
         db['posts'].update_one({"post_pk": post_pk}, {"$set": post})
     except Exception as e:
         # Handle errors and update progress accordingly
+        print(str(e))
         db['progress_collection'].update_one(
             {'_id': progress_id}, {'$set': {'progress': -1, 'is_done': True, "message": str(e)}})
 
 
-@app.route('/api/analyze_metrics/<post_pk>')
-def analyze_metrics_route(post_pk):
+@app.route('/api/analyze_metrics/<post_pk>', methods=['POST'])
+async def analyze_metrics(post_pk):
     try:
         # Create a new document to monitor progress
         progress_doc = {'process': f'analyze_metrics{post_pk}',
                         'progress': 0, 'is_done': False}
         db['progress_collection'].insert_one(progress_doc)
-
-        # Start the asynchronous task
-        asyncio.create_task(analyze_metrics(post_pk, progress_doc['_id']))
-
-        response = set_response_template('success', 'User synchronization started', 0, False, {
-            'progress_id': str(progress_doc['_id'])})
+        asyncio.create_task(run_sync_metrics(post_pk, progress_doc['_id']))
+        result = find_data("posts", {"post_pk": post_pk})
+        response = set_response_template(
+            'success', 'User synchronization started', 100, True, result)
         return jsonify(response)
     except Exception as e:
         # Handle errors and update progress accordingly
@@ -188,15 +229,36 @@ def analyze_metrics_route(post_pk):
         return jsonify(response)
 
 
-async def analyze_metrics(post_pk, progress_id):
+def run_sync_metrics(post_pk, progress_id):
     try:
+        post_data = find_data("posts", {"post_pk": post_pk})
+        post_data.pop("_id")
+        user_data = find_data("users", {"username": post_data["username"]})
+        views = post_data["view_count"]
+        likes = post_data["likes_total"]
+        comments = post_data['comments_total']
+        date_today = datetime.datetime.now()
+        followers = user_data["follower_count"]
+        engagement_rate = (likes + comments + views) / followers
+        metric = {
+            'engagement_rate_score': engagement_rate,
+            'datetime': date_today,
+        }
+        if ("engagement_rate" in post_data):
+            engagement_arr = post_data["engagement_rate"]
+        else:
+            engagement_arr = []
+        engagement_arr.append(metric)
+        post_data["engagement_rate"] = engagement_arr
         # Update progress to 100 upon completion
         db['progress_collection'].update_one(
             {'_id': progress_id}, {'$set': {'progress': 100, 'is_done': True}})
+        db['posts'].update_one({"post_pk": post_pk}, {"$set": post_data})
     except Exception as e:
         # Handle errors and update progress accordingly
+        print(str(e))
         db['progress_collection'].update_one(
-            {'_id': progress_id}, {'$set': {'progress': -1, 'is_done': True}})
+            {'_id': progress_id}, {'$set': {'progress': -1, 'is_done': True, "message": str(e)}})
 
 
 @app.route('/api/sync_user/<username>', methods=['POST'])
@@ -221,11 +283,16 @@ async def sync_post(post_pk):
         #                 'progress': 0, 'is_done': False}
         # db['progress_collection'].insert_one(progress_doc)
         scrapper.sync_post(post_pk)
+        progress_doc = {'process': f'analyze_metrics{post_pk}',
+                        'progress': 0, 'is_done': False}
+        db['progress_collection'].insert_one(progress_doc)
+        run_sync_metrics(post_pk, progress_doc['_id'])
         result = find_data("posts", {"post_pk": post_pk})
         response = set_response_template(
             'success', 'Post synchronization started', 100, True, result)
         return jsonify(response)
     except Exception as e:
+        print(e)
         # Handle errors and update progress accordingly
         response = set_response_template('FAILURE', f'Error: {str(e)}')
         return jsonify(response)

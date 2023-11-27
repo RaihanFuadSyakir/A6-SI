@@ -20,6 +20,10 @@ import AddOldComments from './AddOldComments';
 import AnalyzeSentiment from './AnalyzeSentiment';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import AnalyzeMetric from './AnalyzeMetric';
+import { LineChart } from '@mui/x-charts/LineChart';
+import MetricChart from '../etc/MetricChart';
+
 interface showPost{
     posts : Post[];
     setPosts : React.Dispatch<React.SetStateAction<Post[] | null>>;
@@ -60,8 +64,8 @@ export default function DialogPost({posts,setPosts,index}:showPost) {
                     <Typography><FavoriteIcon className='text-red-600'/>{posts[index].likes_total}</Typography>
                     <Typography><ChatBubbleOutlineIcon/> {posts[index].comments_total}</Typography>
                     <Typography>old comments <AddOldComments setPosts={setPosts} posts={posts} index={index}/></Typography>
+                    <Typography>Analyze Metric <AnalyzeMetric setPosts={setPosts} posts={posts} index={index}/></Typography>
                     <Typography>Analyze Sentiment <AnalyzeSentiment setPosts={setPosts} posts={posts} index={index}/></Typography>
-                    
                 </div>
                 <Typography className='flex items-end'>
                   <div>
@@ -71,51 +75,69 @@ export default function DialogPost({posts,setPosts,index}:showPost) {
                 </Typography>
             </div>
           <Accordion>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="comments-detail"
-          id="comments-header"
-        >
-          <Typography>Comments : {posts[index].comments.length}</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-        {posts[index].comments.map((comment,index_c)=>(
-            <div className='flex flex-row' key={`${posts[index].post_pk}${index_c}`}>
-                <div className='w-1/3 font-bold'>{comment.username}</div>
-                <div className='w-2/3 flex flex-col'>
-                    <div>{comment.text}</div>
-                    <div>{comment.sentiment && (
-                        comment.sentiment?.overall === 1 ? 
-                        (<div className='text-blue-600'>Posititive</div>) 
-                        :
-                        (<div className='text-red-600'>Negative</div>)
-                    )}
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="comments-detail"
+              id="comments-header"
+            >
+              <Typography>Comments : {posts[index].comments.length}</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+            {posts[index].comments.map((comment,index_c)=>(
+                <div className='flex flex-row' key={`${posts[index].post_pk}${index_c}`}>
+                    <div className='w-1/3 font-bold'>{comment.username}</div>
+                    <div className='w-2/3 flex flex-col'>
+                        <div>{comment.text}</div>
+                        <div>{comment.sentiment && (
+                            comment.sentiment?.overall === 1 ? 
+                            (<div className='text-blue-600'>Posititive</div>) 
+                            :
+                            (<div className='text-red-600'>Negative</div>)
+                        )}
+                        </div>
+                        {comment.sentiment && comment.sentiment?.detail && (
+                            <Accordion className='w-2/3'>
+                                <AccordionSummary
+                                expandIcon={<ExpandMoreIcon />}
+                                aria-controls="sentiment-detail"
+                                id="sentiment-header"
+                                >
+                                <Typography>Detail</Typography>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                <div className='flex flex-col'>
+                                        <div className='text-blue-600'>positive : {comment.sentiment?.detail.positive}</div>
+                                        <div className='text-red-600'>negative : {comment.sentiment?.detail.negative}</div>
+                                        <div className='text-gray-600'>neutral : {comment.sentiment?.detail.neutral}</div>
+                                </div>
+                                </AccordionDetails>
+                            </Accordion>
+                        )}
+                        
                     </div>
-                    {comment.sentiment && comment.sentiment?.detail && (
-                        <Accordion className='w-2/3'>
-                            <AccordionSummary
-                            expandIcon={<ExpandMoreIcon />}
-                            aria-controls="sentiment-detail"
-                            id="sentiment-header"
-                            >
-                            <Typography>Detail</Typography>
-                            </AccordionSummary>
-                            <AccordionDetails>
-                            <div className='flex flex-col'>
-                                    <div className='text-blue-600'>positive : {comment.sentiment?.detail.positive}</div>
-                                    <div className='text-red-600'>negative : {comment.sentiment?.detail.negative}</div>
-                                    <div className='text-gray-600'>neutral : {comment.sentiment?.detail.neutral}</div>
-                            </div>
-                            </AccordionDetails>
-                        </Accordion>
-                    )}
-                    
                 </div>
-            </div>
-          ))}
-        </AccordionDetails>
-      </Accordion>
-          
+              ))}
+            </AccordionDetails>
+          </Accordion>
+          {posts[index].engagement_rate && (
+            <Accordion>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="metric-detail"
+              id="metric-header"
+            >
+              <Typography>Engagement Rate</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+            {posts[index].engagement_rate.map((date)=>(
+              <div>
+                <div>{new Date(date.datetime).toLocaleDateString('en-GB')}</div>
+                <div>{date.engagement_rate_score}</div>
+              </div>
+            ))}
+            </AccordionDetails>
+          </Accordion>      
+          )}
           </DialogContent>
           <DialogActions>
             <Button autoFocus onClick={handleClose}>
