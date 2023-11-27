@@ -1,12 +1,12 @@
+from decimal import Decimal
+from scipy.special import softmax
+import json
+import numpy as np
 from transformers import AutoModelForSequenceClassification
 from transformers import TFAutoModelForSequenceClassification
 from transformers import AutoTokenizer, AutoConfig
 from transformers import logging
 logging.set_verbosity_error()
-import numpy as np
-import json
-from scipy.special import softmax
-from decimal import Decimal
 
 # Preprocess text (username and link placeholders)
 
@@ -26,6 +26,7 @@ config = AutoConfig.from_pretrained(MODEL)
 # PT
 model = AutoModelForSequenceClassification.from_pretrained(MODEL)
 
+
 def compare_scores(scores):
     if scores[2] > scores[1] and scores[2] > scores[0]:
         return 1
@@ -37,7 +38,8 @@ def compare_scores(scores):
         # Handle the case where none of the conditions are met
         return None
 
-def analyzeSentiment(text: str) -> str:
+
+def analyzeSentiment(text: str):
     text = preprocess(text)
     encoded_input = tokenizer(text, return_tensors='pt')
     output = model(**encoded_input)
@@ -49,10 +51,13 @@ def analyzeSentiment(text: str) -> str:
         "negative": float(scores[0])
     }
     sentiment = compare_scores(scores)
-    return sentiment, details
+    return {
+        "overall": sentiment,
+        "detail": details
+    }
+
 
 '''# testing
 text = "I'm neutral about it"
 sentiment, details = analyzeSentiment(text)
 print("sentiment : " + str(sentiment) + " ", details)'''
-

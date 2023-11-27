@@ -5,6 +5,7 @@ import json
 import os
 import pymongo
 import datetime
+from deep_translator import GoogleTranslator
 
 
 class InstagramScraper:
@@ -18,7 +19,9 @@ class InstagramScraper:
         self.myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         self.db_name = db_name
         self.set_attr_from_db()
-        self.login_user_usejson()
+        if (self.username != None and self.password != None):
+            self.login_user_usejson()
+        self.is_connected = False
         self.mydb = self.myclient[db_name]
         self.col_users = self.mydb["users"]
         self.col_posts = self.mydb["posts"]
@@ -59,11 +62,12 @@ class InstagramScraper:
                     new_session = self.cl.get_settings()
                     self.myclient["main"]["users"].update_one(
                         {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}})
-
+                    self.is_connected = True
                 login_via_session = True
                 new_session = self.cl.get_settings()
                 self.myclient["main"]["users"].update_one(
                     {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}})
+                self.is_connected = True
                 print("revalidate session")
             except Exception as e:
                 self.logger.info(
@@ -78,6 +82,7 @@ class InstagramScraper:
                     new_session = self.cl.get_settings()
                     self.myclient["main"]["users"].update_one(
                         {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}})
+                    self.is_connected = True
                     print("new session added")
             except Exception as e:
                 self.logger.info(
@@ -126,10 +131,10 @@ class InstagramScraper:
             })
         return posts
 
-    def get_posts_paginated(self, target_user: str, amount: int, end_cursor):
+    def get_posts_paginated(self, target_user: str, end_cursor: str | None):
         user_id = self.cl.user_id_from_username(target_user)
         medias, end_cursor = self.cl.user_medias_paginated(
-            user_id, amount, end_cursor=end_cursor)
+            user_id, 100, end_cursor)
         posts = []
         for media in medias:
             posts.append({
@@ -179,21 +184,21 @@ class InstagramScraper:
             comments_dict.append({
                 "comment_pk": comment.pk,
                 "username": comment.user.username,
-                "text": comment.text
+                "text": GoogleTranslator(source='auto', target='en').translate(comment.text)
             })
         return comments_dict
 
-    def get_post_comments_paginated(self, post_pk: str):
-        comments, end_cursor = self.cl.media_comments_chunk(
-            post_pk, 100)
+    def get_post_comments_paginated(self, post_pk: str, end_cursor: str | None):
+        comments, new_end_cursor = self.cl.media_comments_chunk(
+            post_pk, 100, end_cursor)
         comments_dict = []
         for comment in comments:
             comments_dict.append({
                 "comment_pk": comment.pk,
                 "username": comment.user.username,
-                "text": comment.text
+                "text": GoogleTranslator(source='auto', target='en').translate(comment.text)
             })
-        return comments_dict, end_cursor
+        return comments_dict, new_end_cursor
 
     def export_json(self, filename, json_target):
         file_path_user = filename + ".json"
@@ -231,34 +236,85 @@ class InstagramScraper:
                 new_comments = self.get_post_comments(
                     post_pk, comments_to_sync)
                 new_post["comments"] = new_comments + existing_post["comments"]
-                self.col_posts.update_one(
-                    {"post_pk": post_pk}, {"$set": new_post})
+                new_post["end_cursor"] = existing_post["end_cursor"]
+            else:
+                new_post["comments"] = existing_post["comments"]
+                new_post["end_cursor"] = existing_post["end_cursor"]
+            self.col_posts.update_one(
+                {"post_pk": post_pk}, {"$set": new_post})
+        else:
+            self.add_past_comments(post_pk)
+
+    def add_past_comments(self, post_pk: str):
+        # Search for an existing document with the given username
+        existing_post = self.col_posts.find_one({"post_pk": post_pk})
+        new_post = self.get_post(post_pk)
+        if existing_post["comments"]:
+            if existing_post["end_cursor"]:
+                new_comments, new_post["end_cursor"] = self.get_post_comments_paginated(
+                    post_pk, existing_post["end_cursor"])
+                new_post["comments"] = existing_post["comments"] + new_comments
+            else:
+                new_post["comments"] = existing_post["comments"]
+
         else:
             new_post["comments"], new_post["end_cursor"] = self.get_post_comments_paginated(
-                post_pk)
-            self.col_posts.update_one({"post_pk": post_pk}, {"$set": new_post})
+                post_pk, None)
+        self.col_posts.update_one({"post_pk": post_pk}, {"$set": new_post})
 
     def sync_user(self, username: str):
+        # Search for an existing document with the given username
+        try:
+            existing_user = self.col_users.find_one({"username": username})
+            new_userinfo = self.get_userinfo(username)
+            if existing_user:
+                new_userinfo["posts"] = existing_user["posts"]
+                new_userinfo["end_cursor"] = existing_user["end_cursor"]
+                posts_to_sync = new_userinfo["media_count"] - \
+                    existing_user["media_count"]
+                if (posts_to_sync > 0):
+                    new_posts = self.get_posts(username, posts_to_sync)
+                    new_posts.reverse()
+                    for post in new_posts:
+                        new_userinfo["posts"].insert(0, post["post_pk"])
+                    self.col_posts.insert_many(new_posts)
+                self.col_users.update_one(
+                    {"username": username},
+                    {"$set": new_userinfo})
+            else:
+                posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
+                    username)
+                posts_ids = []
+                for post in posts:
+                    posts_ids.append(post["post_pk"])
+                new_userinfo["posts"] = posts_ids
+                self.col_users.insert_one(new_userinfo)
+                posts.reverse()
+                self.col_posts.insert_many(posts)
+            return True
+        except ValueError as e:
+            return False, str(e)
+
+    def add_past_posts(self, username: str):
         # Search for an existing document with the given username
         existing_user = self.col_users.find_one({"username": username})
         new_userinfo = self.get_userinfo(username)
         if existing_user:
-            new_userinfo["posts"] = existing_user["posts"].copy()
-            posts_to_sync = new_userinfo["media_count"] - \
-                existing_user["media_count"]
-            if (posts_to_sync > 0):
-                new_posts = self.get_posts(username, posts_to_sync)
-                new_posts.reverse()
+            if existing_user["end_cursor"]:
+                new_posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
+                    username, existing_user["end_cursor"])
                 for post in new_posts:
-                    new_userinfo["posts"].insert(0, post["post_pk"])
-                self.col_users.update_one(
-                    {"username": username},
-                    {"$set": new_userinfo})
+                    new_userinfo["posts"].append(post["post_pk"])
                 self.col_posts.insert_many(new_posts)
-                return "updated"
+            else:
+                new_userinfo["posts"] = existing_user["posts"]
+            self.col_users.update_one(
+                {"username": username},
+                {"$set": new_userinfo})
+            return "updated"
         else:
             posts, new_userinfo["end_cursor"] = self.get_posts_paginated(
-                username, 10, new_userinfo["end_cursor"])
+                username)
             posts_ids = []
             for post in posts:
                 posts_ids.append(post["post_pk"])
@@ -270,10 +326,4 @@ class InstagramScraper:
 
     def scrape_and_save(self, username: str):
         # self.sync_user(username)
-        self.sync_post("3219994390684697487")
-
-
-# Example usage:
-scraper = InstagramScraper("rfs")
-print(scraper.username, scraper.password)
-scraper.scrape_and_save("monsterhuntergame")
+        self.add_past_comments("3219994390684697487")
