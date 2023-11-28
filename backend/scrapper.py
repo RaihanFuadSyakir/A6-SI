@@ -20,7 +20,7 @@ class InstagramScraper:
         self.myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         self.db_name = db_name
         self.set_attr_from_db()
-        if (self.username != None and self.password != None):
+        if (self.username != '' and self.password != ''):
             self.login_user()
         self.mydb = self.myclient[db_name]
         self.col_users = self.mydb["users"]
@@ -89,7 +89,7 @@ class InstagramScraper:
                     "Couldn't login user using username and password: %s" % e)
 
         if not login_via_pw and not login_via_session:
-            raise Exception(
+            print(
                 "Couldn't login user with either password or session")
 
     def get_userinfo(self, username: str):

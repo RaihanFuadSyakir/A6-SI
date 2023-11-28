@@ -39,7 +39,7 @@ async def get_login_state():
     data = client["main"]["users"].find_one({"username": db_name})
     data["_id"] = str(data["_id"])
     data.pop("scrap_acc", None)
-    if (data["is_logged"]):
+    if ("is_logged" in data):
         return set_response_template(
             'SUCCESS', 'User Logged Status fetched', 100, True, data)
 
