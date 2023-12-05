@@ -58,15 +58,29 @@ class InstagramScraper:
                     # use the same device uuids across logins
                     self.cl.set_settings({})
                     self.cl.set_uuids(old_session["uuids"])
-                    self.cl.login(self.username, self.password)
+                    self.cl.login(self.username, self.password, relogin=True)
                     new_session = self.cl.get_settings()
                     self.myclient["main"]["users"].update_one(
-                        {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session, "is_logged": True}})
+                        {"username": self.db_name}, {"$set":
+                                                     {
+                                                         "scrap_acc.username": self.username,
+                                                         "scrap_acc.password": self.password,
+                                                         "scrap_acc.session": new_session,
+                                                         "is_logged": True
+                                                     }
+                                                     })
                     self.is_connected = True
                 login_via_session = True
                 new_session = self.cl.get_settings()
                 self.myclient["main"]["users"].update_one(
-                    {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session, "is_logged": True}})
+                    {"username": self.db_name}, {"$set":
+                                                 {
+                                                     "scrap_acc.username": self.username,
+                                                     "scrap_acc.password": self.password,
+                                                     "scrap_acc.session": new_session,
+                                                     "is_logged": True
+                                                 }
+                                                 })
                 self.is_connected = True
                 print("revalidate session")
             except Exception as e:
@@ -75,13 +89,22 @@ class InstagramScraper:
 
         if not login_via_session:
             try:
+                print(
+                    f'attempt login with username {self.username}')
                 self.logger.info(
                     "Attempting to login via username and password. username: %s" % self.username)
                 if self.cl.login(self.username, self.password):
                     login_via_pw = True
                     new_session = self.cl.get_settings()
                     self.myclient["main"]["users"].update_one(
-                        {"username": self.db_name}, {"$set": {"scrap_acc.session": new_session}, "is_logged": True})
+                        {"username": self.db_name}, {"$set":
+                                                     {
+                                                         "scrap_acc.username": self.username,
+                                                         "scrap_acc.password": self.password,
+                                                         "scrap_acc.session": new_session,
+                                                         "is_logged": True
+                                                     }
+                                                     })
                     self.is_connected = True
                     print("new session added")
             except Exception as e:
@@ -133,7 +156,7 @@ class InstagramScraper:
             })
         return posts
 
-    def get_posts_paginated(self, target_user: str, end_cursor: str | None):
+    def get_posts_paginated(self, target_user: str, end_cursor=None):
         user_id = self.cl.user_id_from_username(target_user)
         medias, end_cursor = self.cl.user_medias_paginated(
             user_id, 100, end_cursor)
@@ -197,7 +220,7 @@ class InstagramScraper:
             })
         return comments_dict
 
-    def get_post_comments_paginated(self, post_pk: str, end_cursor: str | None):
+    def get_post_comments_paginated(self, post_pk: str, end_cursor=None):
         comments, new_end_cursor = self.cl.media_comments_chunk(
             post_pk, 100, end_cursor)
         comments_dict = []

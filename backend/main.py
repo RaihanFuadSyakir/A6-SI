@@ -57,7 +57,6 @@ async def user_login():
 
         username = data['username']
         password = data['password']
-
         # Your login logic here, using the received 'username' and 'password'
         scrapper.set_scrapper_acc(username, password)
         scrapper.login_user()
@@ -66,11 +65,10 @@ async def user_login():
             # Example response
             response_data = set_response_template(
                 200, 'Login successful', data={'username': username})
+            return jsonify(response_data)
         else:
             response_data = set_response_template(401, 'Login failed')
-
-        return jsonify(response_data)
-
+            return jsonify(response_data)
     except Exception as e:
         response_data = set_response_template(500, str(e))
         return jsonify(response_data), 500
@@ -313,4 +311,18 @@ async def run_sync_post(post_pk, progress_id):
 
 
 if __name__ == '__main__':
+    try:
+        print(client['main']["users"].find_one({"username": db_name}))
+    except Exception as e:
+        client['main']["users"].insert_one({
+            "username": db_name,
+            "password": "",
+            "scrap_acc": {
+                "username": "",
+                "password": "",
+                "session": None
+            },
+            "is_logged": False,
+            "latest_sync": ""
+        })
     app.run(debug=True)
