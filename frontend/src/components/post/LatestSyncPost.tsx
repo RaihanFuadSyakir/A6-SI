@@ -56,7 +56,7 @@ export default function LatestSyncPost() {
   return (
     <div>
         {post && (
-            <InstagramEmbed url={`https://www.instagram.com/p/${post.link}/`} width={328} />
+            <InstagramEmbed url={`https://www.instagram.com/p/${post.link}/`} width={500} />
         )}
     </div>
   )

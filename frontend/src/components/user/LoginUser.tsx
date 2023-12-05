@@ -30,7 +30,7 @@ export default function LoginUser() {
         })
     },[])
   return (
-    <div className='w[300px] m-4'>
+    <div className='w1/4 m-4'>
         {isLogged ? (
             <div>Logged in</div>
             ) :
@@ -52,7 +52,7 @@ export default function LoginUser() {
                     fullWidth
                     margin="normal"
                 />
-                <Button variant="contained" color="primary" onClick={handleLogin}>
+                <Button variant="contained" color="primary" onClick={handleLogin} className={`bg-blue-600 hover:bg-blue-500`}>
                     Login
                 </Button>
             </div>)
